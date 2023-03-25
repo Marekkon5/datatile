@@ -6,6 +6,7 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkInfo;
+import android.provider.Settings;
 import android.service.quicksettings.Tile;
 import android.service.quicksettings.TileService;
 import android.util.Log;
@@ -51,12 +52,18 @@ public class DataTile extends TileService {
         updateTile();
     }
 
+
+
     // Update tile info
     void updateTile() {
         NetworkUsage networkUsage = getDataUsage();
         Tile tile = getQsTile();
         tile.setLabel("Mobile data");
-        tile.setSubtitle(DataTile.filesize(networkUsage.todayRx + networkUsage.todayTx));
+        if (networkUsage == null) {
+            tile.setSubtitle("N/A");
+        } else {
+            tile.setSubtitle(DataTile.filesize(networkUsage.todayRx + networkUsage.todayTx));
+        }
         tile.setState(isDataOn() ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE);
         tile.updateTile();
     }
@@ -80,14 +87,6 @@ public class DataTile extends TileService {
     // Check if data on: https://github.com/CasperVerswijvelt/Better-Internet-Tiles/blob/main/app/src/main/java/be/casperverswijvelt/unifiedinternetqs/util/Util.kt
     private boolean isDataOn() {
         ConnectivityManager connectivityManager = (ConnectivityManager)this.getSystemService(Context.CONNECTIVITY_SERVICE);
-//        boolean isDataOn = false;
-//        for (Network network : connectivityManager.getAllNetworks()) {
-//            NetworkInfo networkInfo = connectivityManager.getNetworkInfo(network);
-//            if (networkInfo.getType() == ConnectivityManager.TYPE_MOBILE) {
-//                isDataOn |= networkInfo.isConnected();
-//            }
-//        }
-//        return isDataOn;
 
         try {
             Class c = Class.forName(connectivityManager.getClass().getName());
@@ -98,7 +97,9 @@ public class DataTile extends TileService {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return false;
+
+        // Fallback
+        return Settings.Secure.getInt(getContentResolver(), "mobile_data", 1) == 1;
     }
 
     NetworkUsage getDataUsage() {
@@ -139,7 +140,7 @@ public class DataTile extends TileService {
 
     // Source: https://stackoverflow.com/questions/3263892/format-file-size-as-mb-gb-etc
     public static String filesize(long size) {
-        if(size <= 0) return "0";
+        if(size <= 0) return "0 B";
         final String[] units = new String[] { "B", "KB", "MB", "GB", "TB" };
         int digitGroups = (int) (Math.log10(size)/Math.log10(1024));
         return new DecimalFormat("#,##0.#").format(size/Math.pow(1024, digitGroups)) + " " + units[digitGroups];
